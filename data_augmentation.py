@@ -24,6 +24,7 @@ class DataAugmentationDINO(object):
             utils.GaussianBlur(1.0),
             normalize,
         ])
+
         # second global crop
         self.global_transfo2 = transforms.Compose([
             transforms.RandomResizedCrop(224, scale=global_crops_scale, interpolation=Image.BICUBIC),

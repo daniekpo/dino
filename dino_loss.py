@@ -7,7 +7,15 @@ import torch.nn.functional as F
 
 class DINOLoss(nn.Module):
     def __init__(
-        self, out_dim, ncrops, warmup_teacher_temp, teacher_temp, warmup_teacher_temp_epochs, nepochs, student_temp=0.1, center_momentum=0.9
+        self,
+        out_dim,
+        ncrops,
+        warmup_teacher_temp,
+        teacher_temp,
+        warmup_teacher_temp_epochs,
+        nepochs,
+        student_temp=0.1,
+        center_momentum=0.9
     ):
         super().__init__()
         self.student_temp = student_temp

@@ -58,6 +58,7 @@ def train_dino(args):
         student = vits.__dict__[args.arch](patch_size=args.patch_size, drop_path_rate=0.1,)  # stochastic depth
         teacher = vits.__dict__[args.arch](patch_size=args.patch_size)
         embed_dim = student.embed_dim
+
     # otherwise, we check if the architecture is in torchvision models
     elif args.arch in torchvision_models.__dict__.keys():
         student = torchvision_models.__dict__[args.arch]()
@@ -117,6 +118,7 @@ def train_dino(args):
         optimizer = torch.optim.SGD(params_groups, lr=0, momentum=0.9)  # lr is set by scheduler
     elif args.optimizer == "lars":
         optimizer = utils.LARS(params_groups)  # to use with convnet and large batches
+
     # for mixed precision training
     fp16_scaler = None
     if args.use_fp16:

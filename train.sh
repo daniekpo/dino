@@ -1,0 +1,1 @@
+python -m torch.distributed.launch --nproc_per_node=8 main_dino.py --arch deit_small --data_path /multiview/datasets/imagenet/train --output_dir ./save/saving_dir --batch_size_per_gpu 24
