@@ -46,6 +46,8 @@ def train_dino(args):
     # ============ preparing data ... ============
     transform = DataAugmentationDINO(args.global_crops_scale, args.local_crops_scale, args.local_crops_number,)
     dataset = datasets.ImageFolder(args.data_path, transform=transform)
+
+    # sampler for dividing the dataset among GPUs
     sampler = torch.utils.data.DistributedSampler(dataset, shuffle=True)
     data_loader = torch.utils.data.DataLoader(
         dataset, sampler=sampler, batch_size=args.batch_size_per_gpu, num_workers=args.num_workers, pin_memory=True, drop_last=True,
@@ -65,7 +67,7 @@ def train_dino(args):
         teacher = torchvision_models.__dict__[args.arch]()
         embed_dim = student.fc.weight.shape[1]
     else:
-        print(f"Unknow architecture: {args.arch}")
+        print(f"Unknown architecture: {args.arch}")
 
     # multi-crop wrapper handles forward with inputs of different resolutions
     student = utils.MultiCropWrapper(

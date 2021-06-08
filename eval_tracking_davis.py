@@ -1,11 +1,11 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -37,7 +37,7 @@ def eval_video_tracking_davis(args, model, frame_list, video_dir, first_seg, seg
     """
     Evaluate tracking on a video given first frame & segmentation
     """
-    video_folder = os.path.join(args.output_dir, video_dir.split('/')[-1])
+    video_folder = os.path.join(args.output_dir, video_dir.split("/")[-1])
     os.makedirs(video_folder, exist_ok=True)
 
     # The queue stores the n preceeding frames
@@ -49,6 +49,7 @@ def eval_video_tracking_davis(args, model, frame_list, video_dir, first_seg, seg
     # saving first segmentation
     out_path = os.path.join(video_folder, "00000.png")
     imwrite_indexed(out_path, seg_ori, color_palette)
+
     mask_neighborhood = None
     for cnt in tqdm(range(1, len(frame_list))):
         frame_tar = read_frame(frame_list[cnt], args.input_size, args.patch_size)
@@ -62,18 +63,19 @@ def eval_video_tracking_davis(args, model, frame_list, video_dir, first_seg, seg
         # pop out oldest frame if neccessary
         if que.qsize() == args.n_last_frames:
             que.get()
+
         # push current results into queue
         seg = copy.deepcopy(frame_tar_avg)
         que.put([frame_tar, seg])
 
         # upsampling & argmax
-        frame_tar_avg = torch.nn.functional.interpolate(frame_tar_avg, scale_factor=args.patch_size, mode='bilinear')[0]
+        frame_tar_avg = torch.nn.functional.interpolate(frame_tar_avg, scale_factor=args.patch_size, mode="bilinear")[0]
         frame_tar_avg = norm_mask(frame_tar_avg)
         _, frame_tar_seg = torch.max(frame_tar_avg, dim=0)
 
         # saving to disk
         frame_tar_seg = np.array(frame_tar_seg.squeeze().cpu(), dtype=np.uint8)
-        frame_nm = frame_list[cnt].split('/')[-1].replace(".jpg", ".png")
+        frame_nm = frame_list[cnt].split("/")[-1].replace(".jpg", ".png")
         imwrite_indexed(os.path.join(video_folder, frame_nm), frame_tar_seg, color_palette)
 
 
@@ -97,11 +99,11 @@ def restrict_neighborhood(h, w):
 def norm_mask(mask):
     c, h, w = mask.size()
     for cnt in range(c):
-        mask_cnt = mask[cnt,:,:]
-        if(mask_cnt.max() > 0):
-            mask_cnt = (mask_cnt - mask_cnt.min())
-            mask_cnt = mask_cnt/mask_cnt.max()
-            mask[cnt,:,:] = mask_cnt
+        mask_cnt = mask[cnt, :, :]
+        if mask_cnt.max() > 0:
+            mask_cnt = mask_cnt - mask_cnt.min()
+            mask_cnt = mask_cnt / mask_cnt.max()
+            mask[cnt, :, :] = mask_cnt
     return mask
 
 
@@ -129,16 +131,16 @@ def label_propagation(args, model, frame_tar, list_frames, list_segs, mask_neigh
         curr_i += args.bs
         del out  # free memory
 
-    feat_tar = feature_maps[0].reshape(feature_maps.shape[1], -1).T # h*w x dim
+    feat_tar = feature_maps[0].reshape(feature_maps.shape[1], -1).T  # h*w x dim
 
     ncontext = feature_maps.shape[0] - 1
-    feat_sources = feature_maps[1:].reshape(ncontext, dim, -1) # nmb_context x dim x h*w
+    feat_sources = feature_maps[1:].reshape(ncontext, dim, -1)  # nmb_context x dim x h*w
 
     feat_tar = nn.functional.normalize(feat_tar, dim=1, p=2)
     feat_sources = nn.functional.normalize(feat_sources, dim=1, p=2)
 
     feat_tar = feat_tar.unsqueeze(0).repeat(ncontext, 1, 1)
-    aff = torch.exp(torch.bmm(feat_tar, feat_sources) / 0.1) # nmb_context x h*w (tar: query) x h*w (source: keys)
+    aff = torch.exp(torch.bmm(feat_tar, feat_sources) / 0.1)  # nmb_context x h*w (tar: query) x h*w (source: keys)
 
     if args.size_mask_neighborhood > 0:
         if mask_neighborhood is None:
@@ -146,7 +148,7 @@ def label_propagation(args, model, frame_tar, list_frames, list_segs, mask_neigh
             mask_neighborhood = mask_neighborhood.unsqueeze(0).repeat(ncontext, 1, 1)
         aff *= mask_neighborhood
 
-    aff = aff.transpose(2, 1).reshape(-1, h * w) # nmb_context*h*w (source: keys) x h*w (tar: queries)
+    aff = aff.transpose(2, 1).reshape(-1, h * w)  # nmb_context*h*w (source: keys) x h*w (tar: queries)
     tk_val, _ = torch.topk(aff, dim=0, k=args.topk)
     tk_val_min, _ = torch.min(tk_val, dim=0)
     aff[aff < tk_val_min] = 0
@@ -156,20 +158,20 @@ def label_propagation(args, model, frame_tar, list_frames, list_segs, mask_neigh
     list_segs = [s.cuda() for s in list_segs]
     segs = torch.cat(list_segs)
     nmb_context, C, w, h = segs.shape
-    segs = segs.reshape(nmb_context, C, -1).transpose(2, 1).reshape(-1, C).T # C x nmb_context*h*w
+    segs = segs.reshape(nmb_context, C, -1).transpose(2, 1).reshape(-1, C).T  # C x nmb_context*h*w
     seg_tar = torch.mm(segs, aff)
     seg_tar = seg_tar.reshape(1, C, w, h)
     return seg_tar, mask_neighborhood
- 
+
 
 def imwrite_indexed(filename, array, color_palette):
     """ Save indexed png for DAVIS."""
     if np.atleast_3d(array).shape[2] != 1:
-      raise Exception("Saving indexed PNGs requires 2D array.")
+        raise Exception("Saving indexed PNGs requires 2D array.")
 
     im = Image.fromarray(array)
     im.putpalette(color_palette.ravel())
-    im.save(filename, format='PNG')
+    im.save(filename, format="PNG")
 
 
 def to_one_hot(y_tensor, n_dims=None):
@@ -177,18 +179,18 @@ def to_one_hot(y_tensor, n_dims=None):
     Take integer y (tensor or variable) with n dims &
     convert it to 1-hot representation with n+1 dims.
     """
-    if(n_dims is None):
-        n_dims = int(y_tensor.max()+ 1)
-    _,h,w = y_tensor.size()
+    if n_dims is None:
+        n_dims = int(y_tensor.max() + 1)
+    _, h, w = y_tensor.size()
     y_tensor = y_tensor.type(torch.LongTensor).view(-1, 1)
     n_dims = n_dims if n_dims is not None else int(torch.max(y_tensor)) + 1
     y_one_hot = torch.zeros(y_tensor.size()[0], n_dims).scatter_(1, y_tensor, 1)
-    y_one_hot = y_one_hot.view(h,w,n_dims)
+    y_one_hot = y_one_hot.view(h, w, n_dims)
     return y_one_hot.permute(2, 0, 1).unsqueeze(0)
 
 
 def read_frame_list(video_dir):
-    frame_list = [img for img in glob.glob(os.path.join(video_dir,"*.jpg"))]
+    frame_list = [img for img in glob.glob(os.path.join(video_dir, "*.jpg"))]
     frame_list = sorted(frame_list)
     return frame_list
 
@@ -204,22 +206,20 @@ def read_seg(seg_path, size, downsampling_ratio):
     else:
         tw, th = size
     seg = torch.tensor(np.asarray(seg).copy())
-    seg = nn.functional.interpolate(seg[None, None], scale_factor=(tw/w, th/h), mode="nearest")[0]
+    seg = nn.functional.interpolate(seg[None, None], scale_factor=(tw / w, th / h), mode="nearest")[0]
     tw, th = int(tw - tw % args.patch_size), int(th - th % args.patch_size)
     seg = seg[:, :th, :tw]
-    small_seg = nn.functional.interpolate(seg[None], scale_factor=1/downsampling_ratio, mode="nearest")[0]
+    small_seg = nn.functional.interpolate(seg[None], scale_factor=1 / downsampling_ratio, mode="nearest")[0]
     return to_one_hot(small_seg), seg.squeeze().numpy()
 
 
 def read_frame(frame_path, size, downsampling_ratio):
-    with open(frame_path, 'rb') as f:
+    with open(frame_path, "rb") as f:
         img = Image.open(f)
-        img = img.convert('RGB')
-    transform = transforms.Compose([
-        transforms.Resize(size),
-        transforms.ToTensor(),
-        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-    ])
+        img = img.convert("RGB")
+    transform = transforms.Compose(
+        [transforms.Resize(size), transforms.ToTensor(), transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))]
+    )
     img = transform(img)
     # make the image divisible by the patch size
     w, h = img.shape[1] - img.shape[1] % downsampling_ratio, img.shape[2] - img.shape[2] % downsampling_ratio
@@ -227,19 +227,28 @@ def read_frame(frame_path, size, downsampling_ratio):
     return img
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser('Evaluation with video object segmentation on DAVIS 2017')
-    parser.add_argument('--pretrained_weights', default='', type=str, help="Path to pretrained weights to evaluate.")
-    parser.add_argument('--arch', default='deit_small', type=str,
-        choices=['deit_tiny', 'deit_small', 'vit_base'], help='Architecture (support only ViT atm).')
-    parser.add_argument('--patch_size', default=16, type=int, help='Patch resolution of the model.')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser("Evaluation with video object segmentation on DAVIS 2017")
+    parser.add_argument("--pretrained_weights", default="", type=str, help="Path to pretrained weights to evaluate.")
+    parser.add_argument(
+        "--arch",
+        default="deit_small",
+        type=str,
+        choices=["deit_tiny", "deit_small", "vit_base"],
+        help="Architecture (support only ViT atm).",
+    )
+    parser.add_argument("--patch_size", default=16, type=int, help="Patch resolution of the model.")
     parser.add_argument("--checkpoint_key", default="teacher", type=str, help='Key to use in the checkpoint (example: "teacher")')
-    parser.add_argument('--output_dir', default=".", help='Path where to save segmentations')
+    parser.add_argument("--output_dir", default=".", help="Path where to save segmentations")
     parser.add_argument("--input_size", type=int, nargs="+", default=[480], help="size of shorter image side")
-    parser.add_argument('--data_path', default='/path/to/davis/', type=str)
+    parser.add_argument("--data_path", default="/path/to/davis/", type=str)
     parser.add_argument("--n_last_frames", type=int, default=7, help="number of preceeding frames")
-    parser.add_argument("--size_mask_neighborhood", default=12, type=int,
-        help="We restrict the set of source nodes considered to a spatial neighborhood of the query node")
+    parser.add_argument(
+        "--size_mask_neighborhood",
+        default=12,
+        type=int,
+        help="We restrict the set of source nodes considered to a spatial neighborhood of the query node",
+    )
     parser.add_argument("--topk", type=int, default=5, help="accumulate label from top k neighbors")
     parser.add_argument("--bs", type=int, default=6, help="Batch size, try to reduce if OOM")
     args = parser.parse_args()
@@ -258,13 +267,13 @@ if __name__ == '__main__':
 
     color_palette = []
     for line in urlopen("https://raw.githubusercontent.com/Liusifei/UVC/master/libs/data/palette.txt"):
-        color_palette.append([int(i) for i in line.decode("utf-8").split('\n')[0].split(" ")])
-    color_palette = np.asarray(color_palette, dtype=np.uint8).reshape(-1,3)
+        color_palette.append([int(i) for i in line.decode("utf-8").split("\n")[0].split(" ")])
+    color_palette = np.asarray(color_palette, dtype=np.uint8).reshape(-1, 3)
 
     video_list = open(os.path.join(args.data_path, "ImageSets/2017/val.txt")).readlines()
     for i, video_name in enumerate(video_list):
         video_name = video_name.strip()
-        print(f'[{i}/{len(video_list)}] Begin to segmentate video {video_name}.')
+        print(f"[{i}/{len(video_list)}] Begin to segmentate video {video_name}.")
         video_dir = os.path.join(args.data_path, "JPEGImages/480p/", video_name)
         frame_list = read_frame_list(video_dir)
         seg_path = frame_list[0].replace("JPEGImages", "Annotations").replace("jpg", "png")

@@ -562,13 +562,18 @@ class MultiCropWrapper(nn.Module):
         # convert to list
         if not isinstance(x, list):
             x = [x]
+
+        # Get the end index of all consecutive shapes to know where to start
+        # and end the concatenation operation to put images of the same shape
+        # in the same batch
         idx_crops = torch.cumsum(
             torch.unique_consecutive(torch.tensor([inp.shape[-1] for inp in x]), return_counts=True,)[1],
             0
         )
         start_idx = 0
         for end_idx in idx_crops:
-            _out = self.backbone(torch.cat(x[start_idx:end_idx]))
+            same_size_images = torch.cat(x[start_idx:end_idx])
+            _out = self.backbone(same_size_images)
             if start_idx == 0:
                 output = _out
             else:

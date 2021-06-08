@@ -12,8 +12,11 @@ class DataAugmentationDINO(object):
             ),
             transforms.RandomGrayscale(p=0.2),
         ])
+
         normalize = transforms.Compose([
             transforms.ToTensor(),
+
+            # Why a mean of (0.485, 0.456, 0.406) std of (0.229, 0.224, 0.225)
             transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
         ])
 
@@ -33,6 +36,7 @@ class DataAugmentationDINO(object):
             utils.Solarization(0.2),
             normalize,
         ])
+
         # transformation for the local small crops
         self.local_crops_number = local_crops_number
         self.local_transfo = transforms.Compose([
